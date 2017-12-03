@@ -16,7 +16,23 @@ This script is written in Perl and use under the hood theses commands:
 
 [Command line usages are available here](../../wiki/Command-Line-usage)
 
-# Example
+# Examples
+
+```
+./disklist.pl
+partition           zpool         device      disk                      size  serial                 rpm
+--------------------------------------------------------------------------------------------------------
+da134p2             freenas-boot  da134       SanDisk Ultra Fit           62  4C531001421128120501   ???
+da126p2             volBACKUP     da126       ATA Hitachi HUA72302      2000  YGHGTR4A              7200
+da127p2             volBACKUP     da127       ATA Hitachi HUA72302      2000  YFHLRZ1A              7200
+da128p2             volBACKUP     da128       ATA Hitachi HUA72302      2000  YGGU4MKA              7200
+da129p2             volBACKUP     da129       ATA Hitachi HUA72302      2000  YGGU5D6A              7200
+da130p2             volBACKUP     da130       ATA Hitachi HUA72302      2000  YFGR7ZPC              7200
+da131p2             volBACKUP     da131       ATA Hitachi HUA72302      2000  YGHHK07A              7200
+da132p2             volBACKUP     da132       ATA Hitachi HUA72302      2000  YFHHMMXA              7200
+da133p2             volBACKUP     da133       ATA Hitachi HUA72302      2000  YGGK2R4A              7200
+```
+
 ```
 ./disklist.pl -i:zpool tank -all
 
