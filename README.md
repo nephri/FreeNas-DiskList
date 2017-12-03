@@ -14,6 +14,8 @@ This script is written in Perl and use under the hood theses commands:
 * sas3ircu # display
 * nvmecontrol devlist
 
+[Command line usages are available here](../../wiki/Command-Line-usage)
+
 # Example
 ```
 ./disklist.pl -i:zpool tank -all
