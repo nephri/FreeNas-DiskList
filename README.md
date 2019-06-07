@@ -36,8 +36,9 @@ da135p2    gptid/ba039608-898d-11e6-92dc-0cc47a320ec8  volBACKUP     da135   ATA
 ```
 ./disklist.pl -i:zpool tank -all
 
-partition           label                                       zpool    device     sector  disk                      size  type  serial     rpm  location         multipath         mode
------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-multipath/disk30p2  gptid/fe38f700-829a-11e7-810a-00074304a2f0  tank     da49,da97     512  HITACHI HUS72302CLAR2000  2000  HDD   YGH1E3DD  7200  SAS3008(1):3#53  multipath/disk30
-multipath/disk31p2  gptid/01a5298c-829b-11e7-810a-00074304a2f0  tank     da50,da98     512  HITACHI HUS72302CLAR2000  2000  HDD   YGH1Y9KD  7200  SAS3008(1):3#54  multipath/disk31
+partition  fs           label                                       zpool zpool-location      device  sector  disk                  size  type  serial     rpm  sas-location    multipath  path-mode  path-state
+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+da128p2    freebsd-zfs  gptid/a32d92ef-898d-11e6-92dc-0cc47a320ec8  tank  volBACKUP/raidz2-0  da128      512  ATA Hitachi HUA72302  2000  HDD   YGHGTR4A  7200  SAS2008(0):2#3
+da129p2    freebsd-zfs  gptid/a64d2fdb-898d-11e6-92dc-0cc47a320ec8  tank  volBACKUP/raidz2-0  da129      512  ATA Hitachi HUA72302  2000  HDD   YFHLRZ1A  7200  SAS2008(0):2#2
+
 ```
