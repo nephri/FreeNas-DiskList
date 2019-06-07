@@ -12,7 +12,7 @@ This script is written in Perl and use under the hood theses commands:
 * sas2ircu # display
 * sas3ircu list
 * sas3ircu # display
-* smartctl -A <device>
+* smartctl -A [device]
 
 [Command line usages are available here](../../wiki/Command-Line-usage)
 
