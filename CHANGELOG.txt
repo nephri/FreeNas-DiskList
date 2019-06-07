@@ -1,0 +1,36 @@
+Change Log
+========== 
+
+version 1.1 (07/06/2019)
+-----------
+
+core:
+ - don't use anymore "glabel status"
+ - replace "gmultipath status" by "gmultipath list"
+ - use "gpart list" for building the partitions table
+ - use "gmultipath list" for completing the partitions table & devices with multipath datas
+
+disk type detection:
+ - Handle NVME disk detection
+ - Handle NVRAM disk detection
+ 
+new columns:
+ - column "fs" that show the partition type (freebsd-zfs, freebsd-swap, bios-boot, ...)
+ - column "path-state"  that show the multipath state's device (OPTIMAL, ...)
+ - column "temp" that show the disk temperature
+ - column "zpool-location" that show the location of the partition inside the pool structure (tank/mirror-0, ...)
+ 
+new switches:
+ - switch -smartctl that enable to report columns from smartctl tool (like temperature). without this switch theses columns are skipped.
+ 
+updated profil layout:
+ - "all"   report columns : pPlzZdtDUTSRHemos
+ - "long"  report columns : plzdDUTSRH
+ - "short" report columns : pzdDUT
+ 
+filters:
+ - the -fs:<type> filter can now handle theses types: none, all, any, zfs, swap, bios, unknown
+ - many filters can now be set more than one time for accepting more than one value. This apply to [-i:<class> <entity>],  [-fs:<fstype>],  [-c:<columns>]
+ 
+layout switchs
+ - profil switch like -all, -long or -short can be used in addition of the switch [-c:<columns>]. Theses switch are merged together for defining columns to report.
