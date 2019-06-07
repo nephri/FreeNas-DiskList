@@ -5,14 +5,14 @@ I wrote this script for getting informations about all installed disks inside my
 
 This script is written in Perl and use under the hood theses commands:
 * geom disk list
-* gmultipath status
+* gpart list
+* gmultipath list
 * zpool status
-* glabel status
 * sas2ircu list
 * sas2ircu # display
 * sas3ircu list
 * sas3ircu # display
-* nvmecontrol devlist
+* smartctl -A <device>
 
 [Command line usages are available here](../../wiki/Command-Line-usage)
 
