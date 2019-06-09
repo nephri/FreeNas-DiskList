@@ -1,6 +1,20 @@
 Change Log
 ========== 
 
+version 1.1a (incoming)
+------------
+
+fix:
+ - fix consideration of unused disks (when no partition). In 1.1 some partioned disks was also reported as unused disks
+
+layout:
+ - columns without any values are automatically removed from the layout.
+   By example, if you don't have multipath drives, subsequents columns are automatically removed from the final layout
+ 
+enhance:
+ - new switch -locate allow to blink disk enclosure led for 10 seconds
+   This switch works only for drive connected to a sas hba (sas2ircu & sas3ircu compatible controllers)
+ 
 version 1.1 (07/06/2019)
 -----------
 
