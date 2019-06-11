@@ -20,6 +20,10 @@ enhance:
 - new switch "-static" for prevent columns to be removed even if they are empties.
 - new switch "-nolabel" that allow to report only disk information without information about partitions
  
+todo:
+- support GELI drives & partitions
+- add drives count at the end of the report
+ 
 version 1.1 (07/06/2019)
 -----------
 
