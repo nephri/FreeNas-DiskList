@@ -145,98 +145,6 @@ sub parseSasDevices {
    }
 }
 
-
-sub completeDiskType {
-   foreach my $device ( keys %devices ) { 
-      if( $device =~ m/^nvd/ ) {
-         $devices{ $device }->{'type'}= 'NVME';
-      }
-      if( $device =~ m/^pmem/ ) {
-         $devices{ $device }->{'type'}= 'NVRAM';
-      }
-   }
-}
-
-sub parseMultiPath {
-   # multipath/disk3  OPTIMAL  da70 (ACTIVE)
-   #                           da22 (PASSIVE)
-   my $multipath      = "";
-   my $multipathState = "";
-
-   my $inProviders    = 0;
-   my $inConsumers    = 0;
-
-   my $disk           = "";
-   my $diskMode       = "";
-
-   for( `gmultipath list` ) {
-      (my $line) = /^(.*)$/;
-
-      if ( $line =~ m/^Providers:/ ) {
-          $inProviders    = 1;
-          $inConsumers    = 0;
-
-          $multipath      = "";
-          $multipathState = "";
-
-          $disk           = "";
-          $diskMode       = "";
-      }
-      if( $line =~ m/^Consumers:/ ) {
-          $inProviders  = 0;
-          $inConsumers  = 1;
-      }
-     
-      if( ( $line =~ m/^\d+\.[\s]*Name:/ ) && ( $inProviders == 1 ) ) {
-         $multipath =  $line;
-         $multipath =~ s/^\d+\.\sName:[\s]*(.*)[\s]*$/$1/;
-      }
-      if( ( $line =~ m/^[\s]*State:/ ) && ( $inProviders == 1 ) ) {
-         $multipathState = $line;
-         $multipathState =~ s/^[\s]*State:[\s]*(.*)[\s]*$/$1/;
-      }
-
-      if( ( $line =~ m/^\d+\.[\s]*Name:/ ) && ( $inConsumers == 1 ) ) {
-         $disk     = $line;
-         $disk     =~ s/^\d+\.\sName:[\s]*(.*)[\s]*$/$1/;
-         $diskMode = "";
-         
-         $devices{ $disk }->{'multipath'}       = $multipath;
-         $devices{ $disk }->{'multipath_mode'}  = "n/a";
-         $devices{ $disk }->{'multipath_state'} = $multipathState; 
-      }
-      if( ( $line =~ m/^[\s]+State:/ ) && ( $inConsumers == 1 ) ) {
-         $diskMode = $line;
-         $diskMode =~ s/^[\s]+State:[\s]*(.*)[\s]*$/$1/;
-         
-         $devices{ $disk }->{'multipath_mode'}  = $diskMode;
-
-         foreach my $gptid ( keys %partitions ) { 
-           if( $partitions{ $gptid }->{'component'} eq $multipath ) {
-              
-              $partitions{ $gptid }->{'path'} = $multipath;
-
-              $devices{ $disk }->{'partitioned'}  = 1;
-                  
-              if( $partitions{ $gptid }->{'devices'} eq "" ) {
-                $partitions{ $gptid }->{'device'}  = $disk;
-                $partitions{ $gptid }->{'devices'} = $disk;
-              }
-              else {
-                $partitions{ $gptid }->{'devices'} = $partitions{ $gptid }->{'devices'} . "," . $disk;
-              }
-           }
-        }
-      }
-   }
-
-   foreach my $gptid ( keys %partitions ) { 
-      if( $partitions{ $gptid }->{'devices'} eq "" ) {
-         $partitions{ $gptid }->{'devices'} = $partitions{ $gptid }->{'device'};
-      }
-   } 
-}
-
 sub parseDisks {
    # da70
    #
@@ -418,19 +326,144 @@ sub parsePartitions {
    }
 }
 
-sub printPartitions {
-   foreach my $p ( keys %partitions ) { 
-      print "Partition      : $partitions{ $p }->{'partition'}\n";
-      print "   gptid       : $partitions{ $p }->{'gptid'}\n";
-      print "   type        : $partitions{ $p }->{'type'}\n";
-      print "   comp        : $partitions{ $p }->{'component'}\n";
-      print "   device      : $partitions{ $p }->{'device'}\n";
-      print "   devices     : $partitions{ $p }->{'devices'}\n";
-      print "   path        : $partitions{ $p }->{'path'}\n";
-      print "   zpool       : $partitions{ $p }->{'zpool'}\n";
-      print "   zpool loc   : $partitions{ $p }->{'zpool_location'}\n";
-      print "   zpool state : $partitions{ $p }->{'zpool_state'}\n";
-      print "\n";
+sub parseMultiPath {
+   # multipath/disk3  OPTIMAL  da70 (ACTIVE)
+   #                           da22 (PASSIVE)
+   my $multipath      = "";
+   my $multipathState = "";
+
+   my $inProviders    = 0;
+   my $inConsumers    = 0;
+
+   my $disk           = "";
+   my $diskMode       = "";
+
+   for( `gmultipath list` ) {
+      (my $line) = /^(.*)$/;
+
+      if ( $line =~ m/^Providers:/ ) {
+          $inProviders    = 1;
+          $inConsumers    = 0;
+
+          $multipath      = "";
+          $multipathState = "";
+
+          $disk           = "";
+          $diskMode       = "";
+      }
+      if( $line =~ m/^Consumers:/ ) {
+          $inProviders  = 0;
+          $inConsumers  = 1;
+      }
+     
+      if( ( $line =~ m/^\d+\.[\s]*Name:/ ) && ( $inProviders == 1 ) ) {
+         $multipath =  $line;
+         $multipath =~ s/^\d+\.\sName:[\s]*(.*)[\s]*$/$1/;
+      }
+      if( ( $line =~ m/^[\s]*State:/ ) && ( $inProviders == 1 ) ) {
+         $multipathState = $line;
+         $multipathState =~ s/^[\s]*State:[\s]*(.*)[\s]*$/$1/;
+      }
+
+      if( ( $line =~ m/^\d+\.[\s]*Name:/ ) && ( $inConsumers == 1 ) ) {
+         $disk     = $line;
+         $disk     =~ s/^\d+\.\sName:[\s]*(.*)[\s]*$/$1/;
+         $diskMode = "";
+         
+         $devices{ $disk }->{'multipath'}       = $multipath;
+         $devices{ $disk }->{'multipath_mode'}  = "n/a";
+         $devices{ $disk }->{'multipath_state'} = $multipathState; 
+      }
+      if( ( $line =~ m/^[\s]+State:/ ) && ( $inConsumers == 1 ) ) {
+         $diskMode = $line;
+         $diskMode =~ s/^[\s]+State:[\s]*(.*)[\s]*$/$1/;
+         
+         $devices{ $disk }->{'multipath_mode'}  = $diskMode;
+
+         foreach my $gptid ( keys %partitions ) { 
+           if( $partitions{ $gptid }->{'component'} eq $multipath ) {
+              
+              $partitions{ $gptid }->{'path'} = $multipath;
+
+              $devices{ $disk }->{'partitioned'}  = 1;
+                  
+              if( $partitions{ $gptid }->{'devices'} eq "" ) {
+                $partitions{ $gptid }->{'device'}  = $disk;
+                $partitions{ $gptid }->{'devices'} = $disk;
+              }
+              else {
+                $partitions{ $gptid }->{'devices'} = $partitions{ $gptid }->{'devices'} . "," . $disk;
+              }
+           }
+        }
+      }
+   }
+
+   foreach my $gptid ( keys %partitions ) { 
+      if( $partitions{ $gptid }->{'devices'} eq "" ) {
+         $partitions{ $gptid }->{'devices'} = $partitions{ $gptid }->{'device'};
+      }
+   } 
+}
+
+# unused for now. see in conjunction with 'glabel list' and multipath
+# for now, the parseZpool trim .eli for be able to do the link between gptid and devices...
+#
+sub parseGeli {
+   my $inProviders  = 0;
+   my $inConsumers  = 0;
+
+   my $encrypted    = "";
+   my $algorithm    = "";
+
+   for( `geli list` ) {
+      (my $line) = /^(.*)$/;
+
+      if ( $line =~ m/^Providers:/ ) {
+          $inProviders  = 1;
+          $inConsumers  = 0;
+      }
+
+      if( $line =~ m/^Consumers:/ ) {
+          $inProviders  = 0;
+          $inConsumers  = 1;
+      }
+     
+      if( $line =~ m/^Geom name:/ ) {
+          $encrypted = $line;
+          $encrypted =~ s/^Geom name:[\s]*(.*)[\s]*$/$1/;
+          $algorithm = "";
+      }
+
+      if( ( $line =~ m/^\d+\.\sName:/ ) && ( $inConsumers == 1 ) ) {
+         my $plain = $line;
+            $plain =~ s/^\d+\.\sName:[\s]*(.*)[\s]*$/$1/;
+
+         if( exists( $devices{ $plain } ) ) {
+             my $idev = $devices{ $plain };
+             $idev->{'device'} = $encrypted;
+             delete( $devices{ $plain } );
+             devices{ $encrypted } = $idev;
+         }
+         else {
+             foreach my $dev ( keys %devices ) { 
+                if( $devices{ $dev }->{'multipath'} eq $plain ) {
+                   my $idev = $devices{ $plain };
+                   $idev->{'device'} = $encrypted;
+                   delete( $devices{ $plain } );
+                   devices{ $encrypted } = $idev;
+                }
+             }
+             foreach my $gptid ( keys %partitions ) { 
+               if( $gptid eq $plain ) {
+                   my $ilabel = $partitions{ $plain };
+                   $ilabel->{'gptid'} = $encrypted;
+                   delete( $partitions{ $plain } );
+                   partitions{ $encrypted } = $ilabel;
+               }
+            }
+         }
+      }
    }
 }
 
@@ -469,8 +502,14 @@ sub parseZpools {
          $whites =~ s/^([\s]+)[^\s]+.*$/$1/; 
       my $level  = ( length( $whites ) - 1 ) / 2;
  
-      my $item = $line;
-         $item =~ s/^[\s]*([^\s]+)[\s]*.*$/$1/;
+      my $encrypted = 0;
+      my $item      = $line;
+         $item      =~ s/^[\s]*([^\s]+)[\s]*.*$/$1/;
+
+      if( $item =~ m/\.eli$/ ) {
+         $item      =~ s/^(.*)\.eli$/$1/;
+         $encrypted = 1;
+      }
 
       splice @hierarchy , $level , scalar( @hierarchy ) , ( $item );
 
@@ -540,6 +579,17 @@ sub parseSmartctlDevice {
    }
 
    $idev->{'temperature'} = $tmp;
+}
+
+sub completeDiskType {
+   foreach my $device ( keys %devices ) { 
+      if( $device =~ m/^nvd/ ) {
+         $devices{ $device }->{'type'}= 'NVME';
+      }
+      if( $device =~ m/^pmem/ ) {
+         $devices{ $device }->{'type'}= 'NVRAM';
+      }
+   }
 }
 
 sub printHelp() {
@@ -700,6 +750,22 @@ sub printHelp() {
     print "    -h\n";
     print "          Print this help.\n";
     print "\n";
+}
+
+sub printPartitions {
+   foreach my $p ( keys %partitions ) { 
+      print "Partition      : $partitions{ $p }->{'partition'}\n";
+      print "   gptid       : $partitions{ $p }->{'gptid'}\n";
+      print "   type        : $partitions{ $p }->{'type'}\n";
+      print "   comp        : $partitions{ $p }->{'component'}\n";
+      print "   device      : $partitions{ $p }->{'device'}\n";
+      print "   devices     : $partitions{ $p }->{'devices'}\n";
+      print "   path        : $partitions{ $p }->{'path'}\n";
+      print "   zpool       : $partitions{ $p }->{'zpool'}\n";
+      print "   zpool loc   : $partitions{ $p }->{'zpool_location'}\n";
+      print "   zpool state : $partitions{ $p }->{'zpool_state'}\n";
+      print "\n";
+   }
 }
 
 sub parseArgumentsDiskList {
