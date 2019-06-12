@@ -3,13 +3,22 @@ Change Log
 
 version 1.1a (incoming)
 ------------
+
 fix:
-- fix display of unused disks (when not partitioned). In 1.1 some partioned disks were also reported as unused disks
+- fix display of unused disks (when not partitioned). In 1.1 some partitioned disks were also reported as unused disks
+
+core:
+- gptid association are now done with "glabel list" + "geli list" for handling encrypted partitions (GELI)
+- zpool list are now used for determine the pool mount point (from the altroot)
 
 layout:
 - columns without any values are automatically removed from the layout.
   For example, if you don't have multipath drives, subsequents columns are automatically removed from the final layout
   This behaviour may be disabled using switch -static
+- new column "M" giving the mount point of the zfs pool associated to the specified partition
+- new column "X" giving the encryption algorithm used for encrypt the specified partition
+- "-all" profil is now pPlzZMdtDUTSRHXemos
+- "-long" profile is now plzdDUTSRHXemos
 
 enhance:
 - new switch -locate allow to blink disk enclosure led for 10 seconds
@@ -19,6 +28,7 @@ enhance:
 - new switch "-sort:<columns>" that allow to define the sort order of partitions and devices
 - new switch "-static" for prevent columns to be removed even if they are empties.
 - new switch "-nolabel" that allow to report only disk information without information about partitions
+- print at the end of the report the number of disks reported
  
 version 1.1 (07/06/2019)
 -----------

@@ -41,6 +41,7 @@ our @devicesKeys;
 
 #
 # $partitions{'gptid/fe38f700-829a-11e7-810a-00074304a2f0'}->{'gptid'}		gptid/247b7464-8cba-11e6-b58c-0cc47a320ec8
+# $partitions{'gptid/fe38f700-829a-11e7-810a-00074304a2f0'}->{'uuid'}		247b7464-8cba-11e6-b58c-0cc47a320ec8
 # $partitions{'gptid/fe38f700-829a-11e7-810a-00074304a2f0'}->{'partition'}	multipath/disk30p2
 # $partitions{'gptid/fe38f700-829a-11e7-810a-00074304a2f0'}->{'type'}	        freebsd-zfs
 # $partitions{'gptid/fe38f700-829a-11e7-810a-00074304a2f0'}->{'component'}	multipath/disk30
@@ -50,6 +51,8 @@ our @devicesKeys;
 # $partitions{'gptid/fe38f700-829a-11e7-810a-00074304a2f0'}->{'zpool'}		volFAST
 # $partitions{'gptid/fe38f700-829a-11e7-810a-00074304a2f0'}->{'zpool_location'} volMAIN/mirror-0
 # $partitions{'gptid/fe38f700-829a-11e7-810a-00074304a2f0'}->{'zpool_state'}    ONLINE
+# $partitions{'gptid/fe38f700-829a-11e7-810a-00074304a2f0'}->{'zpool_mount'}    /mnt/volFAST
+# $partitions{'gptid/fe38f700-829a-11e7-810a-00074304a2f0'}->{'encryption'}     AES-XTS
 #
 our %partitions;
 our @partitionsKeys; 
@@ -86,64 +89,6 @@ our $locate=0;
 #
 our @layout;
 
-sub parseSasDevices { 
-   my ($sasircu) = @_;
-
-   for( `$sasircu list | grep '^[ ]*[0-9]'` ) {
-      (my $controller,my $adapter) = /^[\s]+([0-9]+)[\s]+([^\s]+)[\s]+.*$/;
-     
- 
-      my $ondisk = 0;
-      my $disk;
-      for( `$sasircu $controller display ` ) {
-         (my $line) = /^(.*)$/;
-
-         if( $line =~ m/^Device is a Hard disk/ ) {
-             $ondisk = 1;
-             $disk = {};
-         }
-         if( $ondisk == 1 ) {
-             if( $line =~ m/Enclosure/ ) {
-                $disk->{'enclosure'} = $line;
-                $disk->{'enclosure'} =~ s/^.*:[ ]+([^ ]*).*$/$1/;
-             }             
-             if( $line =~ m/Slot/ ) {
-                $disk->{'slot'} = $line;
-                $disk->{'slot'} =~ s/^.*:[ ]+([^ ]*).*$/$1/;
-             }             
-             if( $line =~ m/Protocol/ ) {
-                $disk->{'protocol'} = $line;
-                $disk->{'protocol'} =~ s/^.*:[ ]+([^ ]*).*$/$1/;
-             }             
-             if( $line =~ m/Serial No/ ) {
-                $disk->{'serial'} = $line;
-                $disk->{'serial'} =~ s/^.*:[ ]+([^ ]*).*$/$1/;
-             }             
-             if( $line =~ m/Drive Type/ ) {
-                $disk->{'type'} = $line;
-                $disk->{'type'} =~ s/^.*:[ ]+([^ ]*).*$/$1/;
-             }             
-
-             if( $line =~ m/Drive Type/ ) {
-                 $disk->{'controller'} = $controller;
-                 $disk->{'adapter'}    = $adapter;
-                 if( $sasircu eq "sas2ircu" ) {
-                    $disk->{'sas'} = "sas2";
-                 }
-                 if( $sasircu eq "sas3ircu" ) {
-                    $disk->{'sas'} = "sas3";
-                 }
-                 $sasdevices{ $disk->{'serial'} } = $disk;
-
-                 my $url = $adapter . "(" . $controller . "):" . $disk->{'enclosure'} . "#" . $disk->{'slot'};                
-                 $disk->{'url'} = $url;
-
-                 $ondisk = 0;
-             }
-         }
-      }
-   }
-}
 
 sub parseDisks {
    # da70
@@ -243,9 +188,9 @@ sub parsePartitions {
    my $inConsumers  = 0;
 
    my $part       = "";
-   my $gptid      = "";
    my $type       = "";
    my $component  = "";
+   my $uuid       = "";
 
    my %providers;
 
@@ -253,42 +198,39 @@ sub parsePartitions {
       (my $line) = /^(.*)$/;
 
       if ( $line =~ m/^Providers:/ ) {
-          $inProviders  = 1;
-          $inConsumers  = 0;
+         $inProviders  = 1;
+         $inConsumers  = 0;
       }
       if( $line =~ m/^Consumers:/ ) {
-          $inProviders  = 0;
-          $inConsumers  = 1;
+         $inProviders  = 0;
+         $inConsumers  = 1;
 
          if ( $part ne "" ) {
-             $providers{ $gptid }->{'gptid'}     = $gptid;         
-             $providers{ $gptid }->{'partition'} = $part;         
-             $providers{ $gptid }->{'type'}      = $type;         
+             $providers{ $part }->{'gptid'}     = "";
+             $providers{ $part }->{'uuid'}      = $uuid;
+             $providers{ $part }->{'partition'} = $part;         
+             $providers{ $part }->{'type'}      = $type;         
          }
 
+         $uuid       = "";
          $part       = "";
-         $gptid      = "";
          $type       = "";
          $component  = "";
       }
      
       if( ( $line =~ m/^\d+\.[\s]*Name:/ ) && ( $inProviders == 1 ) ) {
          if ( $part ne "" ) {
-             $providers{ $gptid }->{'gptid'}     = $gptid;         
-             $providers{ $gptid }->{'partition'} = $part;         
-             $providers{ $gptid }->{'type'}      = $type;         
+             $providers{ $part }->{'gptid'}     = "";
+             $providers{ $part }->{'uuid'}      = $uuid;
+             $providers{ $part }->{'partition'} = $part;         
+             $providers{ $part }->{'type'}      = $type;         
          }
  
-         $part      =  $line;
+         $uuid      = "";
+         $part      = $line;
          $part      =~ s/^\d+\.\sName:[\s]*(.*)[\s]*$/$1/;
-         $gptid     = "";
          $type      = "";
          $component = "";
-      }
-      if( ( $line =~ m/^[\s]*rawuuid:/ ) && ( $inProviders == 1 ) ) {
-         $gptid = $line;
-         $gptid =~ s/^[\s]*rawuuid:[\s]*(.*)[\s]*$/$1/;
-         $gptid = "gptid/" . $gptid;
       }
       if( ( $line =~ m/^[\s]*type:/ ) && ( $inProviders == 1 ) ) {
          $type = $line;
@@ -298,30 +240,106 @@ sub parsePartitions {
             $type = "unknown";
          }
       }
+      if( ( $line =~ m/^[\s]*rawuuid:/ ) && ( $inProviders == 1 ) ) {
+         $uuid = $line;
+         $uuid =~ s/^[\s]*rawuuid:[\s]*(.*)[\s]*$/$1/;
+      }
 
       if( ( $line =~ m/^\d+\.\sName:/ ) && ( $inConsumers == 1 ) ) {
          $component =  $line;
          $component =~ s/^\d+\.\sName:[\s]*(.*)[\s]*$/$1/;
 
          foreach my $p ( keys %providers ) { 
-           $providers{ $p }->{'component'} = $component;         
+           my $ilabel = $providers{ $p };
 
-           $partitions{ $p } = $providers{ $p };
-           $partitions{ $p }->{'device'}         = "";
-           $partitions{ $p }->{'devices'}        = "";
-           $partitions{ $p }->{'zpool'}          = "";
-           $partitions{ $p }->{'zpool_location'} = "";
-           $partitions{ $p }->{'zpool_state'}    = "";
-           $partitions{ $p }->{'path'}           = "";
+           $partitions{ $ilabel->{'uuid'} } = $providers{ $p };
+           $partitions{ $ilabel->{'uuid'} }->{'component'}      = $component;
+           $partitions{ $ilabel->{'uuid'} }->{'device'}         = "";
+           $partitions{ $ilabel->{'uuid'} }->{'devices'}        = "";
+           $partitions{ $ilabel->{'uuid'} }->{'zpool'}          = "";
+           $partitions{ $ilabel->{'uuid'} }->{'zpool_location'} = "";
+           $partitions{ $ilabel->{'uuid'} }->{'zpool_state'}    = "";
+           $partitions{ $ilabel->{'uuid'} }->{'zpool_mount'}    = "";
+           $partitions{ $ilabel->{'uuid'} }->{'path'}           = "";
+           $partitions{ $ilabel->{'uuid'} }->{'encryption'}     = "";
 
            if( exists( $devices{ $component } ) ) {
-               $partitions{ $p }->{'device'}  = $component;
+               $partitions{ $ilabel->{'uuid'} }->{'device'}  = $component;
                $devices{ $component }->{'partitioned'} = 1;
            }
          }
          undef %providers;
 
          $inConsumers = 0;
+      }
+   }
+}
+
+sub parseLabels() {
+   my $inProviders  = 0;
+   my $inConsumers  = 0;
+  
+   my $gptid        = "";
+   my $part         = "";
+
+   for( `glabel list` ) {
+      (my $line) = /^(.*)$/;
+
+      if ( $line =~ m/^Providers:/ ) {
+         $inProviders  = 1;
+         $inConsumers  = 0;
+      }
+      if( $line =~ m/^Consumers:/ ) {
+         $inProviders  = 0;
+         $inConsumers  = 1;
+      }
+     
+      if( ( $line =~ m/^\d+\.[\s]*Name:/ ) && ( $inProviders == 1 ) ) {
+         $gptid     =  $line;
+         $gptid     =~ s/^\d+\.\sName:[\s]*(.*)[\s]*$/$1/;
+      }
+
+      if( ( $line =~ m/^\d+\.\sName:/ ) && ( $inConsumers == 1 ) ) {
+         $part =  $line;
+         $part =~ s/^\d+\.\sName:[\s]*(.*)[\s]*$/$1/;
+
+         my $ipart  = "";
+         my $oldkey = "";
+
+         foreach my $p ( keys %partitions ) { 
+           my $ilabel = $partitions{ $p };
+          
+           if( $ilabel->{'partition'} eq $part ) {
+             $ipart  = $ilabel;
+             $oldkey = $p;
+           }
+         }
+ 
+         if( $oldkey ne "" ) {
+
+           delete( $partitions{ $oldkey } );
+
+           $ipart->{'gptid'} = $gptid;
+
+           $partitions{ $gptid } = $ipart;
+         }
+
+         $ipart  = "";
+         $oldkey = "";
+         $part   = "";
+         $gptid  = "";
+      }
+   }
+
+   foreach my $p ( keys %partitions ) { 
+      my $ilabel = $partitions{ $p };
+          
+      if( $ilabel->{'gptid'} eq "" ) {
+           delete( $partitions{ $p } );
+
+           $ilabel->{'gptid'} = "gptid/" . $ilabel->{'uuid'};
+
+           $partitions{ $ilabel->{'gptid'} } = $ilabel;
       }
    }
 }
@@ -406,9 +424,6 @@ sub parseMultiPath {
    } 
 }
 
-# unused for now. see in conjunction with 'glabel list' and multipath
-# for now, the parseZpool trim .eli for be able to do the link between gptid and devices...
-#
 sub parseGeli {
    my $inProviders  = 0;
    my $inConsumers  = 0;
@@ -435,32 +450,22 @@ sub parseGeli {
           $algorithm = "";
       }
 
+      if( $line =~ m/^EncryptionAlgorithm:/ ) {
+          $algorithm = $line;
+          $algorithm =~ s/^EncryptionAlgorithm:[\s]*(.*)[\s]*$/$1/;
+      }
+
       if( ( $line =~ m/^\d+\.\sName:/ ) && ( $inConsumers == 1 ) ) {
          my $plain = $line;
             $plain =~ s/^\d+\.\sName:[\s]*(.*)[\s]*$/$1/;
 
-         if( exists( $devices{ $plain } ) ) {
-             my $idev = $devices{ $plain };
-             $idev->{'device'} = $encrypted;
-             delete( $devices{ $plain } );
-             devices{ $encrypted } = $idev;
-         }
-         else {
-             foreach my $dev ( keys %devices ) { 
-                if( $devices{ $dev }->{'multipath'} eq $plain ) {
-                   my $idev = $devices{ $plain };
-                   $idev->{'device'} = $encrypted;
-                   delete( $devices{ $plain } );
-                   devices{ $encrypted } = $idev;
-                }
-             }
-             foreach my $gptid ( keys %partitions ) { 
-               if( $gptid eq $plain ) {
-                   my $ilabel = $partitions{ $plain };
-                   $ilabel->{'gptid'} = $encrypted;
-                   delete( $partitions{ $plain } );
-                   partitions{ $encrypted } = $ilabel;
-               }
+         foreach my $gptid ( keys %partitions ) { 
+            if( $gptid eq $plain ) {
+               my $ilabel = $partitions{ $plain };
+               $ilabel->{'gptid'}      = $encrypted;
+               $ilabel->{'encryption'} = $algorithm;
+               delete( $partitions{ $plain } );
+               $partitions{ $encrypted } = $ilabel;
             }
          }
       }
@@ -502,14 +507,13 @@ sub parseZpools {
          $whites =~ s/^([\s]+)[^\s]+.*$/$1/; 
       my $level  = ( length( $whites ) - 1 ) / 2;
  
-      my $encrypted = 0;
       my $item      = $line;
          $item      =~ s/^[\s]*([^\s]+)[\s]*.*$/$1/;
 
-      if( $item =~ m/\.eli$/ ) {
-         $item      =~ s/^(.*)\.eli$/$1/;
-         $encrypted = 1;
-      }
+      #if( $item =~ m/\.eli$/ ) {
+      #   $item      =~ s/^(.*)\.eli$/$1/;
+      #   $encrypted = 1;
+      #}
 
       splice @hierarchy , $level , scalar( @hierarchy ) , ( $item );
 
@@ -544,6 +548,89 @@ sub parseZpools {
                $partitions{ $gptid }->{'zpool_location'} = $location;
                $partitions{ $gptid }->{'zpool_state'}    = $state;
             }
+         }
+      }
+   }
+
+   #NAME           SIZE  ALLOC   FREE  EXPANDSZ   FRAG    CAP  DEDUP  HEALTH  ALTROOT
+   #freenas-boot  57.5G  4.53G  53.0G         -      -     7%  1.00x  ONLINE  -
+   #volBACKUP     14.5T  6.00T  8.50T         -    23%    41%  1.00x  ONLINE  /mnt
+   for( `zpool list` ) {
+      (my $line) = /^(.*)$/;
+
+      if( $line =~ m/^NAME/ ) {
+         next;
+      }
+ 
+      my $zpool =  $line;
+         $zpool =~ s/^([^\s]+)\s.*$/$1/;
+
+      my $altroot = (split ' ', $line)[9];
+
+      if( $altroot ne "-" ) {
+         foreach my $gptid ( keys %partitions ) { 
+            if( $partitions{ $gptid }->{'zpool'} eq $zpool ) {
+               $partitions{ $gptid }->{'zpool_mount'}    = $altroot . "/" . $zpool;
+            }
+         }
+      }
+   }
+}
+
+sub parseSasDevices { 
+   my ($sasircu) = @_;
+
+   for( `$sasircu list | grep '^[ ]*[0-9]'` ) {
+      (my $controller,my $adapter) = /^[\s]+([0-9]+)[\s]+([^\s]+)[\s]+.*$/;
+     
+ 
+      my $ondisk = 0;
+      my $disk;
+      for( `$sasircu $controller display ` ) {
+         (my $line) = /^(.*)$/;
+
+         if( $line =~ m/^Device is a Hard disk/ ) {
+             $ondisk = 1;
+             $disk = {};
+         }
+         if( $ondisk == 1 ) {
+             if( $line =~ m/Enclosure/ ) {
+                $disk->{'enclosure'} = $line;
+                $disk->{'enclosure'} =~ s/^.*:[ ]+([^ ]*).*$/$1/;
+             }             
+             if( $line =~ m/Slot/ ) {
+                $disk->{'slot'} = $line;
+                $disk->{'slot'} =~ s/^.*:[ ]+([^ ]*).*$/$1/;
+             }             
+             if( $line =~ m/Protocol/ ) {
+                $disk->{'protocol'} = $line;
+                $disk->{'protocol'} =~ s/^.*:[ ]+([^ ]*).*$/$1/;
+             }             
+             if( $line =~ m/Serial No/ ) {
+                $disk->{'serial'} = $line;
+                $disk->{'serial'} =~ s/^.*:[ ]+([^ ]*).*$/$1/;
+             }             
+             if( $line =~ m/Drive Type/ ) {
+                $disk->{'type'} = $line;
+                $disk->{'type'} =~ s/^.*:[ ]+([^ ]*).*$/$1/;
+             }             
+
+             if( $line =~ m/Drive Type/ ) {
+                 $disk->{'controller'} = $controller;
+                 $disk->{'adapter'}    = $adapter;
+                 if( $sasircu eq "sas2ircu" ) {
+                    $disk->{'sas'} = "sas2";
+                 }
+                 if( $sasircu eq "sas3ircu" ) {
+                    $disk->{'sas'} = "sas3";
+                 }
+                 $sasdevices{ $disk->{'serial'} } = $disk;
+
+                 my $url = $adapter . "(" . $controller . "):" . $disk->{'enclosure'} . "#" . $disk->{'slot'};                
+                 $disk->{'url'} = $url;
+
+                 $ondisk = 0;
+             }
          }
       }
    }
@@ -600,8 +687,11 @@ sub printHelp() {
     print "   List information about detected disks from a single command by merging results from multiple standard FreeBSD tools:\n";
     print "            > geom disk list\n";
     print "            > gpart list\n";
+    print "            > glabel list\n";
+    print "            > geli list\n";
     print "            > gmultipath list\n";
     print "            > zpool status\n";
+    print "            > zpool list\n";
     print "            > sas2ircu list\n";
     print "                 > sas2ircu # display\n";
     print "                 > sas2ircu # locate #:#\n";
@@ -692,6 +782,8 @@ sub printHelp() {
     print "             l         : Partition label (gptid).          (exemple: gptid/fe38f700-829a-11e7-810a-00074304a2f0)\n";
     print "             z         : ZFS pool name                     (exemple: tank)\n";
     print "             Z         : Partition location on the pool    (exemple: tank/mirror-0)\n";
+    print "             M         : ZFS mount point                   (exemple: /mnt/tank)\n";
+    print "             X         : Partition encryption algorithm    (exemple: AES-XTS)\n";
     print "\n";
     print "             d         : device code                       (exemple: ada0)\n";
     print "             t         : device sectorsize in Bytes        (exemple: 512)\n";
@@ -719,15 +811,15 @@ sub printHelp() {
     print "          Specify a series of columns to use for sorting devices and partitions.\n";
     print "          The order of the symbol identifier determines the sort order of the column in the output.\n";
     print "          This tools always reports partitions first and unpartitioned disks afterwards.\n";
-    print "          Columns related to partitions (like PplzZ) are unused for sorting devices (but used for sorting partitions).\n";
+    print "          Columns related to partitions (like PplzZMX) are unused for sorting devices (but used for sorting partitions).\n";
     print "          By default, the sort is set to zZmodp (if a column is not reported, it is removed from the sort key also)\n";
     print "          Columns identifiers are the same as used for -c:<columns> switch\n";
     print "\n";
     print "    -all\n";
-    print "          Reports all columns. It's equivalent to -c:pPlzZdtDUTSRHemos\n";
+    print "          Reports all columns. It's equivalent to -c:pPlzZMdtDUTSRHXemos\n";
     print "\n";
     print "    -long\n";
-    print "          Reports on most of the columns and is the default. It's equivalent to -c:plzdDUTSRH\n";
+    print "          Reports on most of the columns and is the default. It's equivalent to -c:plzdDUTSRHXemos\n";
     print "          Can be used in conjunction with -c: switch to add some columns to the -long profile.\n";
     print "\n";
     print "    -short\n";
@@ -740,7 +832,7 @@ sub printHelp() {
     print "\n";
     print "    -smartctl\n";
     print "          Allow the use of \"smartctl\" commands for providing additional disk informations\n";
-    print "          Without this switch, columns that need smartctl will be empty on output\n";
+    print "          Without this switch, columns that need smartctl will be removed from the output.\n";
     print "\n";
     print "    -locate[:duration]\n";
     print "          Blink leds for the specified duration in seconds for all reported disks (using sas2 or sas3 controllers)\n";
@@ -754,17 +846,33 @@ sub printHelp() {
 
 sub printPartitions {
    foreach my $p ( keys %partitions ) { 
-      print "Partition      : $partitions{ $p }->{'partition'}\n";
-      print "   gptid       : $partitions{ $p }->{'gptid'}\n";
-      print "   type        : $partitions{ $p }->{'type'}\n";
-      print "   comp        : $partitions{ $p }->{'component'}\n";
-      print "   device      : $partitions{ $p }->{'device'}\n";
-      print "   devices     : $partitions{ $p }->{'devices'}\n";
-      print "   path        : $partitions{ $p }->{'path'}\n";
-      print "   zpool       : $partitions{ $p }->{'zpool'}\n";
-      print "   zpool loc   : $partitions{ $p }->{'zpool_location'}\n";
-      print "   zpool state : $partitions{ $p }->{'zpool_state'}\n";
-      print "\n";
+      print ">>>>>> ( $p )\n";
+      printPartitionItem( $partitions{ $p } , 'partition' ); 
+      printPartitionItem( $partitions{ $p } , 'uuid' ); 
+      printPartitionItem( $partitions{ $p } , 'gptid' ); 
+      printPartitionItem( $partitions{ $p } , 'type' ); 
+      printPartitionItem( $partitions{ $p } , 'component' ); 
+      printPartitionItem( $partitions{ $p } , 'device' ); 
+      printPartitionItem( $partitions{ $p } , 'devices' ); 
+      printPartitionItem( $partitions{ $p } , 'path' ); 
+      printPartitionItem( $partitions{ $p } , 'zpool' ); 
+      printPartitionItem( $partitions{ $p } , 'zpool_location' ); 
+      printPartitionItem( $partitions{ $p } , 'zpool_state' ); 
+      printPartitionItem( $partitions{ $p } , 'zpool_mount' ); 
+      printPartitionItem( $partitions{ $p } , 'encryption' ); 
+      print "<<<<<<\n";
+   }
+   die;
+}
+
+sub printPartitionItem() {
+   my ($ilabel,$item) = @_;
+  
+   if( defined( $ilabel->{ $item } ) ){
+      print "   $item  : $ilabel->{ $item }\n";
+   }
+   else {
+      print "   $item  : <undefined>\n";
    }
 }
 
@@ -829,11 +937,11 @@ sub parseArgumentsDiskList {
       }
 
       if ( $arg eq "-all" ) {
-          $output_columns = "pPlzZdtDUTSRHemos" . $output_columns;
+          $output_columns = "pPlzZMdtDUTSRHemosX" . $output_columns;
           next;
       }
       if ( $arg eq "-long" ) {
-          $output_columns = "plzdDUTSRH" . $output_columns;
+          $output_columns = "plzdDUTSRHXemos" . $output_columns;
           next;
       }
       if ( $arg eq "-short" ) {
@@ -930,7 +1038,7 @@ sub parseArgumentsDiskList {
    }
 
    if( $output_columns eq "" ) {
-     $output_columns = "plzdDUTSRH" . $output_columns;
+     $output_columns = "plzdDUTSRHXemos" . $output_columns;
    }
 
    if( scalar @query_fs == 0 ) {
@@ -1274,6 +1382,8 @@ sub getColumnLayout {
    if( $col eq "l" ) { $owner = 'label'    ; $info = 'gptid';           $title="label";                     }
    if( $col eq "z" ) { $owner = 'label'    ; $info = 'zpool';           $title="zpool";                     }
    if( $col eq "Z" ) { $owner = 'label'    ; $info = 'zpool_location';  $title="zpool-location";            }
+   if( $col eq "M" ) { $owner = 'label'    ; $info = 'zpool_mount';     $title="zpool-mount";               }
+   if( $col eq "X" ) { $owner = 'label'    ; $info = 'encryption';      $title="encryption";                }
    if( $col eq "d" ) { $owner = 'device'   ; $info = 'device';          $title="device";                    }
    if( $col eq "t" ) { $owner = 'device'   ; $info = 'sectorsize';      $title="sector";    $align="right"; }
    if( $col eq "D" ) { $owner = 'device'   ; $info = 'description';     $title="disk";                      }
@@ -1463,7 +1573,9 @@ sub doReport {
    if ( $print > 0 ) {
       printReportHeader;
    }
-   
+
+   my %reportedDisks;
+
    my $first = 1;
    if( $accept_label == 1 ) {
       foreach my $label ( @partitionsKeys ) { 
@@ -1474,6 +1586,8 @@ sub doReport {
          # filters
          if( applyFilterDevice($idev)  == 0 ) { next; }
          if( applyFilterLabel($ilabel) == 0 ) { next; }
+
+         $reportedDisks{ $idev->{'device'} } = 1;
   
          my $index = 0;
          if( $print > 0 ) {
@@ -1517,6 +1631,8 @@ sub doReport {
       if( applyFilterDevice($idev)  == 0 ) { next; }
       if( applyFilterLabel($ilabel) == 0 ) { next; }
 
+      $reportedDisks{ $idev->{'device'} } = 1;
+
       my $index = 0;
 
       if( $print > 0 ) { 
@@ -1549,6 +1665,11 @@ sub doReport {
    }
    if( $print > 0 ) { 
       printReportFooter;
+   }
+
+   if ( $print > 0 ) {
+      print "\n";
+      print "" . ( scalar keys %reportedDisks ) . " selected disk(s)\n";
    }
 }
 
@@ -1607,12 +1728,13 @@ sub scan {
    #
    parseDisks();
    parsePartitions();
+   parseLabels();
+   parseGeli();
    parseMultiPath();
    parseZpools();
    parseSasDevices("sas2ircu");
    parseSasDevices("sas3ircu");
    completeDiskType();
-
    #printPartitions();
 
    # sort devices/partitions before filtering them
