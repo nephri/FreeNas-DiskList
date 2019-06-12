@@ -17,6 +17,8 @@ layout:
   This behaviour may be disabled using switch -static
 - new column "M" giving the mount point of the zfs pool associated to the specified partition
 - new column "X" giving the encryption algorithm used for encrypt the specified partition
+- "-all" profil is now pPlzZMdtDUTSRHXemos
+- "-long" profile is now plzdDUTSRHXemos
 
 enhance:
 - new switch -locate allow to blink disk enclosure led for 10 seconds
@@ -27,6 +29,7 @@ enhance:
 - new switch "-static" for prevent columns to be removed even if they are empties.
 - new switch "-nolabel" that allow to report only disk information without information about partitions
  
+todo:
 - add drives/partitions count at the end of the report
  
 version 1.1 (07/06/2019)
