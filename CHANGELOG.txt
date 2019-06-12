@@ -28,9 +28,7 @@ enhance:
 - new switch "-sort:<columns>" that allow to define the sort order of partitions and devices
 - new switch "-static" for prevent columns to be removed even if they are empties.
 - new switch "-nolabel" that allow to report only disk information without information about partitions
- 
-todo:
-- add drives/partitions count at the end of the report
+- print at the end of the report the number of disks reported
  
 version 1.1 (07/06/2019)
 -----------
