@@ -6,8 +6,11 @@ I wrote this script for getting informations about all installed disks inside my
 This script is written in Perl and use under the hood theses commands:
 * geom disk list
 * gpart list
+* glabel list
+* geli list
 * gmultipath list
 * zpool status
+* zpool list
 * sas2ircu list
 * sas2ircu # display
 * sas3ircu list
