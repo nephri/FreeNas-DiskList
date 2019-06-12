@@ -5,7 +5,7 @@ version 1.1a (incoming)
 ------------
 
 fix:
-- fix display of unused disks (when not partitioned). In 1.1 some partioned disks were also reported as unused disks
+- fix display of unused disks (when not partitioned). In 1.1 some partitioned disks were also reported as unused disks
 
 core:
 - gptid association are now done with "glabel list" + "geli list" for handling encrypted partitions (GELI)
