@@ -684,7 +684,8 @@ sub completeDiskType {
 sub printHelp() {
     print "disklist.pl [-i:<class> <entity>]* [-fs:<fstype>]* [-disk:<disktype>]* [-nolabel] [-multi[:<multitype>]* [-o:<otype>] [-c:<columns>]* [-sort:<column>]* [-all] [-long] [-short] [-static] [-smartctl] [-locate[:<duration]] [-h]\n";
     print "\n";
-    print "version 1.1a \@2019 (sebastien.andre.288\@gmail.com)\n";
+    print "version 1.1b \@2020 (sebastien.andre.288\@gmail.com)\n";
+    print "      contributors (github.com/danielewood)\n";
     print "\n";
     print "   List information about detected disks from a single command by merging results from multiple standard FreeBSD tools:\n";
     print "            > geom disk list\n";
