@@ -2,3 +2,4 @@
 Special Thanks to:
  > Pierre-Marie Fort who helped me writing the first version of this script (learn me perl by the force ^^)
  > Rand_ (from Serve The Home) for testing / feedbacks and help translations.
+ > github.com/danielewood for patch contribution
