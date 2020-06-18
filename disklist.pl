@@ -178,6 +178,7 @@ sub parseDisks {
       if ( $line =~ m/^[\s]*ident:/ ) {
          $serial =  $line;
          $serial =~ s/^.*:[\s]*(.*)[\s]*$/$1/;
+         $serial =~ s/[^a-zA-Z0-9]//g;
          if ( $device ne "" ) { $disk->{ 'serial' } = $serial; }
       }
    }
@@ -609,6 +610,7 @@ sub parseSasDevices {
              if( $line =~ m/Serial No/ ) {
                 $disk->{'serial'} = $line;
                 $disk->{'serial'} =~ s/^.*:[ ]+([^ ]*).*$/$1/;
+                $disk->{'serial'} =~ s/[^a-zA-Z0-9]//g;
              }             
              if( $line =~ m/Drive Type/ ) {
                 $disk->{'type'} = $line;
