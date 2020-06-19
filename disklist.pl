@@ -123,6 +123,7 @@ sub parseDisks {
          $disk->{ 'sectorsize'      } = "";
          $disk->{ 'rpm'             } = "";
          $disk->{ 'temperature'     } = "";
+         $disk->{ 'poh'             } = "";
          $disk->{ 'disksize'        } = "";
          $disk->{ 'serial'          } = "";
          $disk->{ 'partitioned'     } = 0;
@@ -556,17 +557,26 @@ sub parseZpools {
    #NAME           SIZE  ALLOC   FREE  EXPANDSZ   FRAG    CAP  DEDUP  HEALTH  ALTROOT
    #freenas-boot  57.5G  4.53G  53.0G         -      -     7%  1.00x  ONLINE  -
    #volBACKUP     14.5T  6.00T  8.50T         -    23%    41%  1.00x  ONLINE  /mnt
+   my $index_altroot_column = 9;
    for( `zpool list` ) {
       (my $line) = /^(.*)$/;
 
       if( $line =~ m/^NAME/ ) {
+         my $altroot_header = (split ' ', $line)[9];
+	 if( $altroot_header eq "ALTROOT" ) {
+            $index_altroot_column = 9;
+         }
+         else {
+            # we can have an extra column CKPOINT 
+            $index_altroot_column = 10; 
+         }
          next;
       }
  
       my $zpool =  $line;
          $zpool =~ s/^([^\s]+)\s.*$/$1/;
 
-      my $altroot = (split ' ', $line)[9];
+      my $altroot = (split ' ', $line)[$index_altroot_column];
 
       if( $altroot ne "-" ) {
          foreach my $gptid ( keys %partitions ) { 
@@ -642,32 +652,47 @@ sub parseSmartctlDevice {
    my ($dev) = @_;
 
    my $idev   = $devices{ $dev };
-   my $tmp    = "";
-   for( `smartctl -A /dev/$dev` ) {
+   my $temp   = "";
+   my $poh    = "";
+   for( `smartctl -a /dev/$dev` ) {
       (my $line) = /^(.*)$/;
       if ( $line =~ m/^190 / ) {
-         $tmp = (split ' ', $line)[9];
+         $temp = (split ' ', $line)[9];
       }
       else {
-         if ( ( $line =~ m/^194 / ) && ( "$tmp" eq "" ) ) {
-            $tmp = (split ' ', $line)[9];
+         if ( ( $line =~ m/^194 / ) && ( "$temp" eq "" ) ) {
+            $temp = (split ' ', $line)[9];
          }
          else {
             if ( $line =~ m/^Current Drive Temperature:/ ) {
-               $tmp = (split ' ', $line)[3];
+               $temp = (split ' ', $line)[3];
             }
             else {
                # do nothing
             }
         }
       }
+
+      if ( $line =~ m/^  9 / ) {
+         $poh = (split ' ', $line)[9];
+      }
+      else {
+         if ( $line =~ m/number of hours powered up/ ) {
+            $poh = (split ' ', $line)[6];
+            $poh =~ s/^(.*)\..*$/$1/;
+         }
+      }
    }
 
-   if ( $tmp eq "" ) {
-      $tmp = "???"
+   if ( $temp eq "" ) {
+      $temp = "???"
+   }
+   if ( $poh eq "" ) {
+      $poh = "???"
    }
 
-   $idev->{'temperature'} = $tmp;
+   $idev->{'temperature'} = $temp;
+   $idev->{'poh'}         = $poh;
 }
 
 sub completeDiskType {
@@ -684,7 +709,7 @@ sub completeDiskType {
 sub printHelp() {
     print "disklist.pl [-i:<class> <entity>]* [-fs:<fstype>]* [-disk:<disktype>]* [-nolabel] [-multi[:<multitype>]* [-o:<otype>] [-c:<columns>]* [-sort:<column>]* [-all] [-long] [-short] [-static] [-smartctl] [-locate[:<duration]] [-h]\n";
     print "\n";
-    print "version 1.1b \@2020 (sebastien.andre.288\@gmail.com)\n";
+    print "version 1.1c \@2020 (sebastien.andre.288\@gmail.com)\n";
     print "      contributors (github.com/danielewood)\n";
     print "\n";
     print "   List information about detected disks from a single command by merging results from multiple standard FreeBSD tools:\n";
@@ -711,13 +736,13 @@ sub printHelp() {
     print "   -i:<class> <entity> \n";
     print "          Filter devices/partitions that match the specified <entity> on the corresponding <class>\n";
     print "          Classes are:\n";
-    print "             dev       : Filter on a device name             (exemple: -i:dev ada0)\n";
-    print "             zpool     : Filter on a ZFS pool name           (exemple: -i:zpool tank)\n";
-    print "             part      : Filter on a partition name          (exemple: -i:part ada0p1)\n";
-    print "             gptid     : Filter on a gpt label               (exemple: -i:gptid gptid/fe38f700-829a-11e7-810a-00074304a2f0)\n";
-    print "             serial    : Filter on a Disk Serial number      (exemple: -i:serial YFJ4G2BD)\n";
-    print "             multipath : Filter on a SAS multipath disk name (exemple: -i:multipath multipath/disk1)\n";
-    print "             enclosure : Filter on a SAS enclosure location  (exemple: -i:enclosure 1#6), you can specify <enclosure> or <enclosure>#<slot>\n";
+    print "             dev       : Filter on a device name             (example: -i:dev ada0)\n";
+    print "             zpool     : Filter on a ZFS pool name           (example: -i:zpool tank)\n";
+    print "             part      : Filter on a partition name          (example: -i:part ada0p1)\n";
+    print "             gptid     : Filter on a gpt label               (example: -i:gptid gptid/fe38f700-829a-11e7-810a-00074304a2f0)\n";
+    print "             serial    : Filter on a Disk Serial number      (example: -i:serial YFJ4G2BD)\n";
+    print "             multipath : Filter on a SAS multipath disk name (example: -i:multipath multipath/disk1)\n";
+    print "             enclosure : Filter on a SAS enclosure location  (example: -i:enclosure 1#6), you can specify <enclosure> or <enclosure>#<slot>\n";
     print "\n";
     print "          This argument can be set multiple times for specifying multiple filters.\n";
     print "\n";
@@ -730,13 +755,13 @@ sub printHelp() {
     print "   -fs:<fstype>\n";
     print "          Filter devices/partitions that have a partition that match the specified file system type\n";
     print "          FileSystem types are:\n";
-    print "             all       : Accept any               partition type and disk not partitioned. (exemple: -fs:all)\n";
-    print "             none      : Accept only              disk not partitioned.                    (exemple: -fs:none)\n";
-    print "             any       : Accept any               partition type.                          (exemple: -fs:any)\n";
-    print "             zfs       : Accept only freebsd-zfs  partition type.                          (exemple: -fs:zfs)\n";
-    print "             swap      : Accept only freebsd-swap partition type.                          (exemple: -fs:swap)\n";
-    print "             boot      : Accept only bios-boot    partition type.                          (exemple: -fs:boot)\n";
-    print "             unknown   : Accept only unknown      partition type.                          (exemple: -fs:unknown)\n";
+    print "             all       : Accept any               partition type and disk not partitioned. (example: -fs:all)\n";
+    print "             none      : Accept only              disk not partitioned.                    (example: -fs:none)\n";
+    print "             any       : Accept any               partition type.                          (example: -fs:any)\n";
+    print "             zfs       : Accept only freebsd-zfs  partition type.                          (example: -fs:zfs)\n";
+    print "             swap      : Accept only freebsd-swap partition type.                          (example: -fs:swap)\n";
+    print "             boot      : Accept only bios-boot    partition type.                          (example: -fs:boot)\n";
+    print "             unknown   : Accept only unknown      partition type.                          (example: -fs:unknown)\n";
     print "\n";
     print "          This argument can be set multiples times for specifying a list of fs types.\n";
     print "          By default this command use theses options : -fs:zfs -fs:none\n";
@@ -744,11 +769,11 @@ sub printHelp() {
     print "   -disk:<disktype>\n";
     print "          Filter devices/partitions that match the specified disk type\n";
     print "          Disk types are:\n";
-    print "             sdd       : Solid State Drive       (exemple: -disk:ssd)\n";
-    print "             hdd       : Spindle Drive           (exemple: -disk:hdd)\n";
-    print "             nvme      : NVME Solid State Drive  (exemple: -disk:nvme)\n";
-    print "             nvram     : NVRAM Drive             (exemple: -disk:nvram)\n";
-    print "             unknown   : Unknown drive type      (exemple: -disk:unknown)\n";
+    print "             sdd       : Solid State Drive       (example: -disk:ssd)\n";
+    print "             hdd       : Spindle Drive           (example: -disk:hdd)\n";
+    print "             nvme      : NVME Solid State Drive  (example: -disk:nvme)\n";
+    print "             nvram     : NVRAM Drive             (example: -disk:nvram)\n";
+    print "             unknown   : Unknown drive type      (example: -disk:unknown)\n";
     print "\n";
     print "          This argument can be set multiples times for specifying a list of disk types\n";
     print "\n";
@@ -760,9 +785,9 @@ sub printHelp() {
     print "   -multi[:<mode>]\n";
     print "          Filter devices/partitions that use SAS multipath and optionaly match the multipath mode (ACTIVE or PASSIVE)\n";
     print "          Multipath modes are:\n";
-    print "             none      : The disk device must not use SAS multipath                           (exemple: -multi:none)\n";
-    print "             active    : The disk device must     use SAS multipath and be the ACTIVE  device (exemple: -multi:active)\n";
-    print "             passive   : The disk device must     use SAS multipath and be the PASSIVE device (exemple: -multi:passive)\n";
+    print "             none      : The disk device must not use SAS multipath                           (example: -multi:none)\n";
+    print "             active    : The disk device must     use SAS multipath and be the ACTIVE  device (example: -multi:active)\n";
+    print "             passive   : The disk device must     use SAS multipath and be the PASSIVE device (example: -multi:passive)\n";
     print "\n";
     print "          If no Multipath mode is specified, the disk device must use SAS multipath, whatever the mode of the device.\n";
     print "          This argument can be set multiples times\n";
@@ -780,31 +805,33 @@ sub printHelp() {
     print "          Specify a series of columns to report represented by <columns>. Each column has a symbol identifier.\n";
     print "          The order of a symbol identifier determines the order of the column in the report output.\n";
     print "          Columns identifiers are:\n";
-    print "             p         : Partition name                    (exemple: ada0p1)\n";
-    print "             P         : Partition type.                   (exemple: freebsd-zfs)\n";
-    print "             l         : Partition label (gptid).          (exemple: gptid/fe38f700-829a-11e7-810a-00074304a2f0)\n";
-    print "             z         : ZFS pool name                     (exemple: tank)\n";
-    print "             Z         : Partition location on the pool    (exemple: tank/mirror-0)\n";
-    print "             M         : ZFS mount point                   (exemple: /mnt/tank)\n";
-    print "             X         : Partition encryption algorithm    (exemple: AES-XTS)\n";
+    print "             p         : Partition name                    (example: ada0p1)\n";
+    print "             P         : Partition type.                   (example: freebsd-zfs)\n";
+    print "             l         : Partition label (gptid).          (example: gptid/fe38f700-829a-11e7-810a-00074304a2f0)\n";
+    print "             z         : ZFS pool name                     (example: tank)\n";
+    print "             Z         : Partition location on the pool    (example: tank/mirror-0)\n";
+    print "             M         : ZFS mount point                   (example: /mnt/tank)\n";
+    print "             X         : Partition encryption algorithm    (example: AES-XTS)\n";
     print "\n";
-    print "             d         : device code                       (exemple: ada0)\n";
-    print "             t         : device sectorsize in Bytes        (exemple: 512)\n";
+    print "             d         : device code                       (example: ada0)\n";
+    print "             t         : device sectorsize in Bytes        (example: 512)\n";
     print "\n";
-    print "             D         : Disk Description                  (exemple: HITACHI HUS72302CLAR2000)\n";
-    print "             U         : Disk size in Gb                   (exemple: 2000)\n";
-    print "             T         : Disk type                         (exemple: SSD)\n";
-    print "             S         : Disk Serial Number                (exemple: YFJ4G2BD)\n";
-    print "             R         : Disk Rotational speed             (exemple: 7200)\n";
-    print "             H         : Disk temperature in °C (smartctl) (exemple: 43°)\n";
+    print "             D         : Disk Description                  (example: HITACHI HUS72302CLAR2000)\n";
+    print "             U         : Disk size in Gb                   (example: 2000)\n";
+    print "             T         : Disk type                         (example: SSD)\n";
+    print "             S         : Disk Serial Number                (example: YFJ4G2BD)\n";
+    print "             R         : Disk Rotational speed             (example: 7200)\n";
+    print "             H         : Disk temperature in °C (smartctl) (example: 43°)\n";
+    print "             h         : Power on Hours         (smartctl) (example: 2711)\n";
     print "\n";
-    print "             e         : Controller/Enclosure location     (exemple: SAS3008(0):1#6)\n";
+    print "             e         : Controller/Enclosure location     (example: SAS3008(0):1#6)\n";
     print "\n";
-    print "             m         : SAS Multipath device              (exemple: multipath/disk1)\n";
-    print "             o         : SAS Multipath device mode         (exemple: ACTIVE or PASSIVE)\n";
-    print "             s         : SAS Multipath state               (exemple: OPTIMAL)\n";
+    print "             m         : SAS Multipath device              (example: multipath/disk1)\n";
+    print "             o         : SAS Multipath device mode         (example: ACTIVE or PASSIVE)\n";
+    print "             s         : SAS Multipath state               (example: OPTIMAL)\n";
     print "\n";
-    print "          Columns using \"smartctl\" will be reported only if the -smartctl switch is used.";
+    print "          Columns using \"smartctl\" will be reported only if the -smartctl switch is used.\n";
+    print "          Some of theses attributes are vendor specifics and may be not available (mainly for SAS devices)...\n";
     print "\n";
     print "          You can add -short, -long switches for using a column profile + specified columns.\n";
     print "          In this case, the column order is based on the columns from the selected profile followed by the specified columns.\n";
@@ -819,10 +846,10 @@ sub printHelp() {
     print "          Columns identifiers are the same as used for -c:<columns> switch\n";
     print "\n";
     print "    -all\n";
-    print "          Reports all columns. It's equivalent to -c:pPlzZMdtDUTSRHXemos\n";
+    print "          Reports all columns. It's equivalent to -c:pPlzZMdtDUTSRHhemosX\n";
     print "\n";
     print "    -long\n";
-    print "          Reports on most of the columns and is the default. It's equivalent to -c:plzdDUTSRHXemos\n";
+    print "          Reports on most of the columns and is the default. It's equivalent to -c:plzdDUTSRHemosX\n";
     print "          Can be used in conjunction with -c: switch to add some columns to the -long profile.\n";
     print "\n";
     print "    -short\n";
@@ -944,7 +971,7 @@ sub parseArgumentsDiskList {
           next;
       }
       if ( $arg eq "-long" ) {
-          $output_columns = "plzdDUTSRHXemos" . $output_columns;
+          $output_columns = "plzdDUTSRHemosX" . $output_columns;
           next;
       }
       if ( $arg eq "-short" ) {
@@ -1054,6 +1081,7 @@ sub parseArgumentsDiskList {
 
    if( $accept_smartctl == 0 ) {
      $output_columns =~ tr/H//d;
+     $output_columns =~ tr/h//d;
    }
 
    if( $args_state > 0 ) {
@@ -1380,25 +1408,26 @@ sub getColumnLayout {
       
    $ocol = {};
 
-   if( $col eq "p" ) { $owner = 'label'    ; $info = 'partition';       $title="partition";                 }
-   if( $col eq "P" ) { $owner = 'label'    ; $info = 'type';            $title="fs";                        }
-   if( $col eq "l" ) { $owner = 'label'    ; $info = 'gptid';           $title="label";                     }
-   if( $col eq "z" ) { $owner = 'label'    ; $info = 'zpool';           $title="zpool";                     }
-   if( $col eq "Z" ) { $owner = 'label'    ; $info = 'zpool_location';  $title="zpool-location";            }
-   if( $col eq "M" ) { $owner = 'label'    ; $info = 'zpool_mount';     $title="zpool-mount";               }
-   if( $col eq "X" ) { $owner = 'label'    ; $info = 'encryption';      $title="encryption";                }
-   if( $col eq "d" ) { $owner = 'device'   ; $info = 'device';          $title="device";                    }
-   if( $col eq "t" ) { $owner = 'device'   ; $info = 'sectorsize';      $title="sector";    $align="right"; }
-   if( $col eq "D" ) { $owner = 'device'   ; $info = 'description';     $title="disk";                      }
-   if( $col eq "U" ) { $owner = 'device'   ; $info = 'disksize';        $title="size";      $align="right"; }
-   if( $col eq "T" ) { $owner = 'device'   ; $info = 'type';            $title="type";                      }
-   if( $col eq "S" ) { $owner = 'device'   ; $info = 'serial';          $title="serial";                    }
-   if( $col eq "R" ) { $owner = 'device'   ; $info = 'rpm';             $title="rpm";       $align="right"; }
-   if( $col eq "H" ) { $owner = 'smartctl' ; $info = 'temperature';     $title="temp";      $align="right"; }
-   if( $col eq "e" ) { $owner = 'serial'   ; $info = 'url';             $title="sas-location";              }
-   if( $col eq "m" ) { $owner = 'device'   ; $info = 'multipath';       $title="multipath";                 }
-   if( $col eq "o" ) { $owner = 'device'   ; $info = 'multipath_mode';  $title="multipath-mode";            }
-   if( $col eq "s" ) { $owner = 'device'   ; $info = 'multipath_state'; $title="multipath-state";           }
+   if( $col eq "p" ) { $owner = 'label'    ; $info = 'partition';       $title="partition";                      }
+   if( $col eq "P" ) { $owner = 'label'    ; $info = 'type';            $title="fs";                             }
+   if( $col eq "l" ) { $owner = 'label'    ; $info = 'gptid';           $title="label";                          }
+   if( $col eq "z" ) { $owner = 'label'    ; $info = 'zpool';           $title="zpool";                          }
+   if( $col eq "Z" ) { $owner = 'label'    ; $info = 'zpool_location';  $title="zpool-location";                 }
+   if( $col eq "M" ) { $owner = 'label'    ; $info = 'zpool_mount';     $title="zpool-mount";                    }
+   if( $col eq "X" ) { $owner = 'label'    ; $info = 'encryption';      $title="encryption";                     }
+   if( $col eq "d" ) { $owner = 'device'   ; $info = 'device';          $title="device";                         }
+   if( $col eq "t" ) { $owner = 'device'   ; $info = 'sectorsize';      $title="sector";         $align="right"; }
+   if( $col eq "D" ) { $owner = 'device'   ; $info = 'description';     $title="disk";                           }
+   if( $col eq "U" ) { $owner = 'device'   ; $info = 'disksize';        $title="size";           $align="right"; }
+   if( $col eq "T" ) { $owner = 'device'   ; $info = 'type';            $title="type";                           }
+   if( $col eq "S" ) { $owner = 'device'   ; $info = 'serial';          $title="serial";                         }
+   if( $col eq "R" ) { $owner = 'device'   ; $info = 'rpm';             $title="rpm";            $align="right"; }
+   if( $col eq "H" ) { $owner = 'smartctl' ; $info = 'temperature';     $title="temp";           $align="right"; }
+   if( $col eq "h" ) { $owner = 'smartctl' ; $info = 'poh';             $title="power-on-hours"; $align="right"; }
+   if( $col eq "e" ) { $owner = 'serial'   ; $info = 'url';             $title="sas-location";                   }
+   if( $col eq "m" ) { $owner = 'device'   ; $info = 'multipath';       $title="multipath";                      }
+   if( $col eq "o" ) { $owner = 'device'   ; $info = 'multipath_mode';  $title="multipath-mode";                 }
+   if( $col eq "s" ) { $owner = 'device'   ; $info = 'multipath_state'; $title="multipath-state";                }
 
    if( $owner eq "" ) {
       print "Unknown column identifier $col\n";
@@ -1427,8 +1456,15 @@ sub getPrintableValue {
       $value = $idev->{ $info };
    }
    if( $owner eq "smartctl" ) {
-      if( $idev->{ 'temperature' } eq "" ) {
-         parseSmartctlDevice( $idev->{'device'} );
+      if( $info eq "temperature" ) {
+         if( $idev->{ 'temperature' } eq "" ) {
+             parseSmartctlDevice( $idev->{'device'} );
+         }
+      }
+      if( $info eq "poh" ) {
+         if( $idev->{ 'poh' } eq "" ) {
+             parseSmartctlDevice( $idev->{'device'} );
+         }
       }
       $value = $idev->{ $info };
    }
