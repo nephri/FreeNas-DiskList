@@ -1,6 +1,27 @@
 Change Log
 ========== 
 
+version 1.1c (19/06/2020)
+------------
+fix:
+- The column 'M' show the zfs mount point. The altroot (typically /mnt) is fetched from 'zpool list'. 
+  But now the 'zpool list' output can have an extra column 'CKPOINT' that we should take care for finding the 'ALTROOT' column.
+- Help fix for use "example" instead of "exemple"
+
+layout:
+- new column "h" giving the "Power on Hours" of devices. It's a smartctl's column, so for get it, you have to use the switch '-smartctl'
+- "-all" profil is now pPlzZMdtDUTSRHhemosX
+- "-long" profile is now plzdDUTSRHemosX
+
+
+
+version 1.1b (18/06/2020)
+------------
+fix:
+- strip non alphanumeric characters in S/N to align data from sas backplane and geom disk list
+
+
+
 version 1.1a (12/06/2019)
 ------------
 
