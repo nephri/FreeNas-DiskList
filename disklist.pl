@@ -967,7 +967,7 @@ sub parseArgumentsDiskList {
       }
 
       if ( $arg eq "-all" ) {
-          $output_columns = "pPlzZMdtDUTSRHemosX" . $output_columns;
+          $output_columns = "pPlzZMdtDUTSRHhemosX" . $output_columns;
           next;
       }
       if ( $arg eq "-long" ) {
